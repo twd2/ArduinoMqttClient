@@ -647,6 +647,54 @@ void MqttClient::poll()
   }
 }
 
+bool MqttClient::pollData(uint8_t **buf, uint8_t *end)
+{
+  if (_rxState != MQTT_CLIENT_RX_STATE_READ_PUBLISH_PAYLOAD) {
+    return false;
+  }
+
+  bool again = false;
+
+  if (clientAvailable() == 0 && !clientConnected()) {
+    _rxState = MQTT_CLIENT_RX_STATE_READ_TYPE;
+    _connected = false;
+  }
+
+  while (_rxLength > 0 && clientAvailable()) {
+    byte b = clientRead();
+    _lastRx = millis();
+
+    if (*buf < end) {
+      **buf = b;
+      ++*buf;
+    }
+
+    _rxLength--;
+  }
+
+  if (_rxLength == 0) {
+    ackRxMessage();
+
+    _rxState = MQTT_CLIENT_RX_STATE_READ_TYPE;
+  } else {
+    again = true;
+  }
+
+  if (_connected) {
+    unsigned long now = millis();
+
+    if ((now - _lastPingTx) >= _keepAliveInterval) {
+      _lastPingTx = now;
+
+      ping();
+    } else if ((now - _lastRx) >= (_keepAliveInterval * 2)) {
+      stop();
+    }
+  }
+
+  return again;
+}
+
 int MqttClient::connect(IPAddress ip, uint16_t port)
 {
   return connect(ip, NULL, port);

@@ -77,6 +77,7 @@ public:
   int unsubscribe(const String& topic);
 
   void poll();
+  bool pollData(uint8_t **buf, uint8_t *end);
 
   // from Client
   virtual int connect(IPAddress ip, uint16_t port = 1883);
